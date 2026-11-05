@@ -1,3 +1,3 @@
-import { KnightGame } from './controller.mjs?v=4';
+import { KnightGame } from './controller.mjs?v=6';
 
 new KnightGame();

@@ -1,5 +1,5 @@
 import { GameAudio } from './audio.mjs';
-import { GameBoard } from './board.mjs';
+import { GameBoard } from './board.mjs?v=6';
 import { LevelEditor } from './editor.mjs?v=4';
 import { BONUS_LEVEL_IDS, LevelRepository, MAIN_LEVEL_COUNT } from './level-loader.mjs';
 import { parseLevel, serializeLevel, validateLevel } from './level.mjs?v=4';

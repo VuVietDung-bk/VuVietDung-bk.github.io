@@ -155,6 +155,9 @@ test('controller routes flag, mouse and win-screen keys through the correct stat
   const game = new KnightGame();
   game.progress.flags = 1;
   await game.loadMain();
+  game.handle('h');
+  assert.equal(game.board.hint, 4, 'controller and board expose the same hint API');
+  game.handle('h');
   game.handle('f');
   assert.equal(game.board.flagHelp, true);
   listeners.keydown({ key: 'd', target: { tagName: 'BODY' }, preventDefault() {} });
