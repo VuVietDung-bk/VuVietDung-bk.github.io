@@ -1,6 +1,6 @@
 # Japanese Learning
 
-This is the static GitHub Pages reader for the separate [japanese-vault](https://github.com/VuVietDung-bk/japanese-vault) Obsidian repository. `data/index.js` and `data/notes-*.js` are generated from all Markdown notes in that vault. The original vault is not modified or copied into this repository.
+This is the static GitHub Pages reader for a separate private Obsidian vault. `data/index.js` and `data/notes-*.js` are generated from its Markdown notes. The original vault is not modified by the build script.
 
 To refresh the website after editing the vault:
 

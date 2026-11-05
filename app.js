@@ -42,6 +42,14 @@ function renderSharedLayout() {
     item.append(link);
     list.append(item);
   }
+  const themeItem = document.createElement('li');
+  themeItem.className = 'theme-item';
+  const themeButton = document.createElement('button');
+  themeButton.className = 'theme-toggle';
+  themeButton.type = 'button';
+  themeButton.dataset.themeToggle = '';
+  themeItem.append(themeButton);
+  list.append(themeItem);
   nav.append(list);
   navigation.replaceChildren(nav);
 

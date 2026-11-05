@@ -203,7 +203,7 @@ async function openNote() {
     if (window.matchMedia('(max-width: 700px)').matches) note.scrollIntoView({block: 'start'});
     else window.scrollTo(0, 0);
   } catch {
-    note.replaceChildren(element('h1', 'Không thể mở ghi chú'), element('p', 'Hãy tải lại trang hoặc xem vault gốc trên GitHub.'));
+    note.replaceChildren(element('h1', 'Không thể mở ghi chú'), element('p', 'Hãy tải lại trang rồi thử lại.'));
   }
 }
 
@@ -220,6 +220,6 @@ if (entries.length) {
   renderHome();
   if (location.hash) openNote();
 } else {
-  note.replaceChildren(element('h1', 'Không thể tải thư viện'), element('p', 'Hãy kiểm tra tệp data/index.js hoặc mở vault gốc trên GitHub.'));
+  note.replaceChildren(element('h1', 'Không thể tải thư viện'), element('p', 'Hãy tải lại trang. Nếu lỗi vẫn còn, hãy kiểm tra tệp data/index.js.'));
   count.textContent = 'Không có dữ liệu';
 }
