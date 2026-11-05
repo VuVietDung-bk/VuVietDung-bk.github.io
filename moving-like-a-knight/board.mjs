@@ -98,45 +98,22 @@ export class GameBoard {
     this.flagHelp = false;
   }
 
-  findHint(now = () => performance.now()) {
-    if (this.steps - this.turn > 21) { this.hint = 'overflow'; return this.hint; }
-    this.direction = null;
-    const grid = this.grid.map(row => row.slice());
-    const memo = new Set();
-    const deadline = now() + 400;
-    const solve = (x, y, steps, teleSteps) => {
-      if (3 * steps + teleSteps === 0) return [];
-      if (steps < 0 || teleSteps < 0 || now() > deadline) return null;
-      const key = `${x},${y},${steps},${teleSteps},${grid.map(row => row.join(',')).join(';')}`;
-      if (memo.has(key)) return null;
-      for (let direction = 0; direction < 16; direction++) {
-        const path = DIRECTIONS[direction];
-        if (!path.every(([row, col]) => inBounds(x + row, y + col) && grid[x + row][y + col] > 0)) continue;
-        grid[x][y]--;
-        for (let index = 0; index < 2; index++) grid[x + path[index][0]][y + path[index][1]]--;
-        let nextX = x + path[2][0], nextY = y + path[2][1], teleported = null;
-        for (const tele of this.teles) {
-          if (tele.sx === nextX && tele.sy === nextY &&
-              inBounds(tele.ex, tele.ey) && grid[tele.ex][tele.ey] > 0) {
-            grid[nextX][nextY]--;
-            teleported = tele;
-            nextX = tele.ex;
-            nextY = tele.ey;
-            break;
-          }
-        }
-        const rest = solve(nextX, nextY, steps - 1, teleSteps - Number(Boolean(teleported)));
-        if (teleported) grid[teleported.sx][teleported.sy]++;
-        grid[x][y]++;
-        for (let index = 0; index < 2; index++) grid[x + path[index][0]][y + path[index][1]]++;
-        if (rest) return [direction, ...rest];
-      }
-      memo.add(key);
-      return null;
+  hintSnapshot() {
+    return {
+      x: this.x, y: this.y, steps: this.steps, teleSteps: this.teleSteps,
+      turn: this.turn, teleTurn: this.teleTurn,
+      grid: this.grid.map(row => row.slice()),
+      teles: this.teles.map(tele => ({ ...tele }))
     };
-    const answer = solve(this.x, this.y, this.steps - this.turn, this.teleSteps - this.teleTurn);
-    this.hint = answer?.length ? answer[0] : 'undo';
-    this.points = Math.max(0, this.points - this.hintPenalty);
+  }
+
+  applyHint(result) {
+    if (result.status === 'solved') this.hint = result.direction;
+    else if (result.status === 'unsolvable') this.hint = 'undo';
+    else this.hint = result.status === 'timeout' ? 'timeout' : null;
+    if (this.hint === 'undo' || typeof this.hint === 'number') {
+      this.points = Math.max(0, this.points - this.hintPenalty);
+    }
     return this.hint;
   }
 }

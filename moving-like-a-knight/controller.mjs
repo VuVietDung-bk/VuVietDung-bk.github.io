@@ -1,9 +1,9 @@
 import { GameAudio } from './audio.mjs';
-import { GameBoard } from './board.mjs';
+import { GameBoard } from './board.mjs?v=5';
 import { LevelEditor } from './editor.mjs?v=4';
 import { BONUS_LEVEL_IDS, LevelRepository, MAIN_LEVEL_COUNT } from './level-loader.mjs';
 import { parseLevel, serializeLevel, validateLevel } from './level.mjs?v=4';
-import { GameRenderer } from './renderer.mjs?v=4';
+import { GameRenderer } from './renderer.mjs?v=5';
 import { DEFAULT_PROGRESS, loadCustom, loadProgress, saveCustom, saveProgress } from './storage.mjs';
 
 export class KnightGame {
@@ -27,6 +27,7 @@ export class KnightGame {
     this.lastTick = performance.now();
     this.resetHold = null;
     this.noticeTimer = null;
+    this.hintWorker = null;
     this.bindInputs();
     document.fonts.ready.then(() => this.draw());
     this.draw();
@@ -62,6 +63,7 @@ export class KnightGame {
   }
 
   setScreen(screen) {
+    if (screen !== 'board') this.cancelHint();
     if (screen !== this.state.screen) this.levelRequest++;
     this.state.screen = screen;
     this.audio.setScreen(screen);
@@ -74,6 +76,7 @@ export class KnightGame {
 
   startBoard(level, mode = 'normal', number = this.progress.level, bonus = false, flagPos = [0, 0]) {
     if (!level) { this.showNotice('This level is unavailable.'); return; }
+    this.cancelHint();
     this.state.board = new GameBoard(level, {
       mode, number, bonus, flagPos
     });
@@ -134,8 +137,45 @@ export class KnightGame {
     this.audio.playEffect('win');
   }
 
+  cancelHint() {
+    if (this.hintWorker) {
+      this.hintWorker.terminate();
+      this.hintWorker = null;
+    }
+    if (this.board?.hint === 'searching') this.board.hint = null;
+  }
+
+  requestHint() {
+    const board = this.board;
+    board.direction = null;
+    board.hint = 'searching';
+    try {
+      const worker = new Worker(new URL('./hint-worker.mjs?v=5', import.meta.url), { type: 'module' });
+      this.hintWorker = worker;
+      worker.onmessage = event => {
+        if (this.hintWorker !== worker || this.board !== board || this.screen !== 'board') return;
+        this.hintWorker = null;
+        worker.terminate();
+        board.applyHint(event.data);
+        if (event.data.status === 'timeout') this.showNotice('Hint search took too long. Try again after a move.');
+        this.draw();
+      };
+      worker.onerror = () => {
+        if (this.hintWorker !== worker) return;
+        this.cancelHint();
+        this.showNotice('Hint search could not start.');
+        this.draw();
+      };
+      worker.postMessage(board.hintSnapshot());
+    } catch (error) {
+      this.cancelHint();
+      this.showNotice('Hint search could not start.');
+    }
+  }
+
   handleBoard(key) {
     const lower = key.toLowerCase();
+    if (['ArrowUp', 'ArrowDown', 'Enter', 'ArrowLeft'].includes(key)) this.cancelHint();
     if (this.board.flagHelp && lower !== 'f') {
       this.board.dismissFlagHelp();
       if (key === 'Escape') return;
@@ -150,8 +190,10 @@ export class KnightGame {
     } else if (key === 'ArrowLeft') {
       this.board.undo();
     } else if (lower === 'h') {
-      if (this.board.hint !== null) this.board.hint = null;
-      else this.board.findHint();
+      if (this.board.hint !== null) {
+        this.cancelHint();
+        this.board.hint = null;
+      } else this.requestHint();
     } else if (lower === 'f') {
       if (this.board.pressFlag(this.progress.flags > 0)) {
         this.progress.flags--;

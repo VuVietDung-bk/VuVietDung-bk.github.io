@@ -109,6 +109,7 @@ export class GameRenderer {
       DIRECTIONS[board.hint].forEach(([row, col]) =>
         this.image('hintdot', (board.y + col + 1) * 25, (board.x + row + 1) * 25));
     }
+    if (board.hint === 'searching') this.text('Finding hint…', 25, 42, 22);
     this.image('instruction', 900, 0);
     if (board.mode === 'normal' && progress.flags > 0) this.image('flag', 900, 635);
     if (board.mode === 'normal') {

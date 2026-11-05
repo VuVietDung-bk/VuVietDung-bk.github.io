@@ -7,6 +7,7 @@ import { GameBoard } from '../board.mjs';
 import { LevelEditor } from '../editor.mjs';
 import { parseLevel, serializeLevel } from '../level.mjs';
 import { LevelRepository } from '../level-loader.mjs';
+import { solveHint } from '../hint-solver.mjs';
 import { KnightGame } from '../controller.mjs';
 
 const fileText = path => readFileSync(new URL(`../levels/mainlevels/${path}`, import.meta.url), 'utf8');
@@ -121,6 +122,33 @@ test('individual level files load, including flag positions', async () => {
   assert.deepEqual(parseLevel(serializeLevel(level)), level);
 });
 
+test('hints solve level 29 and difficult easter eggs without changing the board', () => {
+  for (const id of [29, 1001, 1003, 1005, 1006, 1009, 1010, 1015, 1016, 1019]) {
+    const board = new GameBoard(parseLevel(fileText(`level_${id}.txt`)));
+    const before = board.hintSnapshot();
+    const answer = solveHint(before, { now: () => 0 });
+    assert.equal(answer.status, 'solved', `level ${id}`);
+    assert.deepEqual(board.hintSnapshot(), before, `search does not mutate level ${id}`);
+    for (const direction of answer.path) {
+      board.direction = direction;
+      assert.equal(board.move(), true, `level ${id} accepts direction ${direction}`);
+    }
+    assert.equal(board.complete, true, `hint path wins level ${id}`);
+  }
+});
+
+test('hint timeout is distinct from an impossible position and costs no points', () => {
+  const board = new GameBoard(parseLevel(fileText('level_1001.txt')));
+  let clockCalls = 0;
+  const result = solveHint(board.hintSnapshot(), {
+    timeLimitMs: 0, now: () => clockCalls++
+  });
+  assert.equal(result.status, 'timeout');
+  const points = board.points;
+  assert.equal(board.applyHint(result), 'timeout');
+  assert.equal(board.points, points);
+});
+
 test('controller routes flag, mouse and win-screen keys through the correct state', async () => {
   const listeners = {};
   const canvasListeners = {};
@@ -145,9 +173,28 @@ test('controller routes flag, mouse and win-screen keys through the correct stat
   globalThis.URL.createObjectURL = blob => { exportedBlob = blob; return 'blob:test'; };
   globalThis.URL.revokeObjectURL = () => {};
   globalThis.requestAnimationFrame = () => {};
+  let hintWorker;
+  globalThis.Worker = class {
+    constructor() { hintWorker = this; this.terminated = false; }
+    postMessage(snapshot) { this.snapshot = snapshot; }
+    terminate() { this.terminated = true; }
+  };
   const game = new KnightGame();
   game.progress.flags = 1;
   await game.loadMain();
+  game.handle('h');
+  assert.equal(game.board.hint, 'searching');
+  assert.equal(hintWorker.snapshot.steps, game.board.steps);
+  hintWorker.onmessage({ data: { status: 'solved', direction: 3 } });
+  assert.equal(game.board.hint, 3);
+  assert.equal(hintWorker.terminated, true);
+  game.handle('h');
+  game.handle('h');
+  const cancelledWorker = hintWorker;
+  game.handle('ArrowUp');
+  assert.equal(cancelledWorker.terminated, true);
+  cancelledWorker.onmessage({ data: { status: 'solved', direction: 3 } });
+  assert.equal(game.board.hint, null, 'stale hint cannot reappear after input');
   game.handle('f');
   assert.equal(game.board.flagHelp, true);
   listeners.keydown({ key: 'd', target: { tagName: 'BODY' }, preventDefault() {} });

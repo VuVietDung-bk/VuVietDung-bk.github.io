@@ -35,6 +35,8 @@ Custom level cũng lưu trong `localStorage` của trình duyệt, nên không t
 
 Trên bàn cờ và lúc xác minh custom level, **chuột trái** đổi hướng di chuyển. **Chuột phải** xác nhận nước đi nếu đã chọn hướng; nếu chưa chọn hướng, chuột phải hoàn tác. Chuột phải không mở menu ảnh của trình duyệt trên Canvas. Trong menu, chuột trái chọn mục và chuột phải mở mục đang chọn. Trên màn thắng, chuột phải qua màn tiếp theo.
 
+Phím **H** tìm lời giải từ vị trí hiện tại trong luồng riêng. Màn khó có thể cần vài giây; nếu hết giới hạn tìm kiếm, thông báo sẽ hiện trên trang thay vì chỉ sai rằng cần hoàn tác. Gợi ý tìm được mới trừ điểm. Bấm H lần nữa để ẩn gợi ý.
+
 | Màn hình | Phím |
 | --- | --- |
 | Title | Up/Down chọn mục, Left/Right chọn màn replay, Enter mở, S cài đặt, X về More |
@@ -48,7 +50,7 @@ Trên bàn cờ và lúc xác minh custom level, **chuột trái** đổi hướ
 ## Mã nguồn web
 
 - `game.js` khởi động ứng dụng; `controller.mjs` xử lý màn hình và input.
-- `audio.mjs` quản lý nhạc và hiệu ứng; `board.mjs` quản lý nước đi, hoàn tác, gợi ý, flag và điểm.
+- `audio.mjs` quản lý nhạc và hiệu ứng; `board.mjs` quản lý nước đi, hoàn tác, flag và điểm. `hint-solver.mjs` tìm lời giải trong `hint-worker.mjs`.
 - `level-loader.mjs` tải từng file màn; `level.mjs` đọc và ghi định dạng `.txt`.
 - `editor.mjs` tạo và xác minh custom level; `storage.mjs` lưu dữ liệu trong trình duyệt; `renderer.mjs` vẽ ảnh gốc lên Canvas.
 - `assets/images/` và `assets/music/` là bản sao nguyên vẹn của ảnh và âm thanh game Java. Âm thanh chỉ được tải sau tương tác đầu tiên.
