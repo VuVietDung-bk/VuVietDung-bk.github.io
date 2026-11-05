@@ -1,11 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile, readFileSync } from 'node:fs';
+import { promisify } from 'node:util';
 import { GameAudio } from '../audio.mjs';
 import { GameBoard } from '../board.mjs';
 import { LevelEditor } from '../editor.mjs';
-import { parseLevel } from '../level.mjs';
-import { LEVEL_DATA } from '../levels.mjs';
+import { parseLevel, serializeLevel } from '../level.mjs';
+import { LevelRepository } from '../level-loader.mjs';
 import { KnightGame } from '../controller.mjs';
+
+const fileText = path => readFileSync(new URL(`../levels/mainlevels/${path}`, import.meta.url), 'utf8');
+const firstLevel = () => parseLevel(fileText('level_0.txt'));
+const readAsync = promisify(readFile);
+const fetchLevel = async path => ({
+  ok: true,
+  text: () => readAsync(new URL(`../${path}`, import.meta.url), 'utf8')
+});
 
 class FakeAudio {
   constructor() { this.currentTime = 0; this.playing = false; this.plays = 0; this.pauses = 0; }
@@ -53,7 +63,7 @@ test('tracks restart at zero and win sound stops on the next level', () => {
 });
 
 test('flag help dismisses on another key, F consumes one flag, Enter only moves after choosing', () => {
-  const board = new GameBoard(parseLevel(LEVEL_DATA['0']), { flagPos: [8, 17] });
+  const board = new GameBoard(firstLevel(), { flagPos: [8, 17] });
   const original = [board.x, board.y];
   assert.equal(board.move(), false);
   assert.deepEqual([board.x, board.y], original);
@@ -82,24 +92,62 @@ test('level editor writes tile values 1, 2 and 3 from the matching keys', () => 
   assert.equal(editor.level.grid[0][0], -1);
 });
 
-test('controller routes flag and win-screen keys through the correct state', () => {
+test('custom level can be verified, solved, named and serialized', () => {
+  const editor = new LevelEditor();
+  editor.level.x = 8;
+  editor.level.y = 8;
+  for (const [row, col] of [[8, 8], [8, 9], [8, 10], [7, 10]]) editor.level.grid[row][col] = 1;
+  assert.equal(editor.startVerification(), null);
+  assert.equal(editor.verifying, true);
+  for (let tries = 0; tries < 16 && editor.board.direction !== 3; tries++) editor.handle('ArrowUp');
+  assert.equal(editor.board.direction, 3);
+  assert.equal(editor.handle('Enter').action, 'verified');
+  editor.handle('s');
+  editor.handle('T');
+  editor.handle('e');
+  editor.handle('s');
+  editor.handle('t');
+  assert.equal(editor.handle('Enter').action, 'save');
+  assert.equal(editor.rename, 'Test');
+  assert.deepEqual(parseLevel(serializeLevel(editor.level)), editor.level);
+});
+
+test('individual level files load, including flag positions', async () => {
+  const repository = new LevelRepository(fetchLevel);
+  const level = await repository.load(0);
+  assert.equal(level.x, 8);
+  assert.equal(level.steps, 5);
+  assert.deepEqual(await repository.flagPosition(0), [8, 17]);
+  assert.deepEqual(parseLevel(serializeLevel(level)), level);
+});
+
+test('controller routes flag, mouse and win-screen keys through the correct state', async () => {
   const listeners = {};
+  const canvasListeners = {};
   const context = { clearRect() {}, fillRect() {}, drawImage() {}, fillText() {} };
-  const canvas = { getContext: () => context, addEventListener() {}, focus() {} };
+  const canvas = { getContext: () => context, addEventListener: (name, fn) => { canvasListeners[name] = fn; }, focus() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 1040, height: 700 }) };
   const status = { classList: { add() {}, remove() {} } };
   const sound = { addEventListener() {}, setAttribute() {} };
+  const importInput = { addEventListener() {}, value: '' };
+  let downloaded = null, exportedBlob = null;
   globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; } };
   globalThis.Audio = FakeAudio;
   globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.fetch = fetchLevel;
   globalThis.document = {
-    getElementById: id => ({ game: canvas, notice: status, sound })[id],
+    getElementById: id => ({ game: canvas, notice: status, sound, 'level-import': importInput })[id],
     querySelectorAll: () => [], addEventListener: (name, fn) => { listeners[name] = fn; },
+    createElement: () => ({ click() { downloaded = this.download; }, remove() {} }),
+    body: { append() {} },
     fonts: { ready: Promise.resolve() }
   };
+  globalThis.URL.createObjectURL = blob => { exportedBlob = blob; return 'blob:test'; };
+  globalThis.URL.revokeObjectURL = () => {};
   globalThis.requestAnimationFrame = () => {};
   const game = new KnightGame();
   game.progress.flags = 1;
-  game.loadMain();
+  await game.loadMain();
   game.handle('f');
   assert.equal(game.board.flagHelp, true);
   listeners.keydown({ key: 'd', target: { tagName: 'BODY' }, preventDefault() {} });
@@ -113,11 +161,25 @@ test('controller routes flag and win-screen keys through the correct state', () 
   game.handle('f');
   assert.equal(game.progress.flags, 0);
   assert.equal(game.board.flagged, true);
+  const pointer = button => ({ button, clientX: 100, clientY: 100, preventDefault() { this.prevented = true; } });
+  canvasListeners.pointerdown(pointer(0));
+  assert.notEqual(game.board.direction, null);
+  assert.equal(game.board.turn, 0, 'left click only selects direction');
+  const right = pointer(2);
+  canvasListeners.pointerdown(right);
+  assert.equal(right.prevented, true);
+  assert.equal(game.board.turn, 1, 'right click confirms the selected move');
+  canvasListeners.pointerdown(pointer(2));
+  assert.equal(game.board.turn, 0, 'right click undoes when no direction is selected');
+  assert.equal(game.board.direction, null);
+  const contextMenu = { prevented: false, preventDefault() { this.prevented = true; } };
+  canvasListeners.contextmenu(contextMenu);
+  assert.equal(contextMenu.prevented, true, 'browser context menu is blocked on canvas');
   game.activateAudio();
   game.setScreen('win');
   game.audio.playEffect('win');
   game.audio.clips.win.currentTime = 3;
-  game.handle(' ');
+  await game.handle(' ');
   assert.equal(game.screen, 'board');
   assert.equal(game.audio.clips.win.playing, false);
   assert.equal(game.audio.clips.win.currentTime, 0);
@@ -128,4 +190,38 @@ test('controller routes flag and win-screen keys through the correct state', () 
   game.handle('e');
   assert.equal(game.audio.clips.win.playing, false);
   assert.equal(game.screen, 'title');
+  let finishLoad;
+  game.levels.load = () => new Promise(resolve => { finishLoad = resolve; });
+  game.setScreen('win');
+  game.audio.playEffect('win');
+  const nextLevel = game.handle(' ');
+  assert.equal(game.audio.clips.win.playing, false, 'Space stops win audio before the level file loads');
+  finishLoad(firstLevel());
+  await nextLevel;
+  await game.importCustomLevel({ name: 'my level.txt', size: 100, text: async () => fileText('level_0.txt') });
+  assert.equal(game.state.saved[0].name, 'my level');
+  game.startEditor(game.state.saved[0].level, 'my level');
+  game.editor.verified = true;
+  game.editor.rename = 'my level';
+  game.saveEditor();
+  assert.equal(game.state.saved.length, 1, 'editing a saved level may overwrite its existing name');
+  game.setScreen('saved');
+  game.exportSelectedLevel();
+  assert.equal(downloaded, 'my_level.txt');
+  assert.deepEqual(parseLevel(await exportedBlob.text()), game.state.saved[0].level);
+  game.setScreen('more');
+  canvasListeners.pointerdown({ ...pointer(0), clientX: 900, clientY: 200 });
+  assert.equal(game.state.moreIndex, 2);
+  assert.equal(game.screen, 'more', 'left click only navigates a menu');
+  canvasListeners.pointerdown({ ...pointer(2), clientX: 900, clientY: 200 });
+  assert.equal(game.screen, 'custom', 'right click opens the selected menu item');
+  game.state.editor = new LevelEditor(firstLevel(), 'verify mouse');
+  game.editor.startVerification();
+  game.setScreen('custom');
+  canvasListeners.pointerdown(pointer(0));
+  assert.notEqual(game.editor.board.direction, null);
+  canvasListeners.pointerdown(pointer(2));
+  assert.equal(game.editor.board.turn, 1);
+  canvasListeners.pointerdown(pointer(2));
+  assert.equal(game.editor.board.turn, 0, 'right click also undoes during custom verification');
 });

@@ -7,7 +7,7 @@
   <title>Moving Like A Knight | Viet Dung Vu</title>
   <meta name="description" content="Play Moving Like A Knight in your browser.">
   <link rel="stylesheet" href="game.css">
-  <script type="module" src="game.js?v=2"></script>
+  <script type="module" src="game.js?v=4"></script>
 </head>
 <body>
   <header class="page-bar">
@@ -45,10 +45,13 @@
         <button type="button" data-key="s">Settings / Save</button>
         <button type="button" data-key="l">Edit saved</button>
         <button type="button" data-key="x">Delete saved</button>
+        <button type="button" data-key="import">Import .txt</button>
+        <button type="button" data-key="export">Export selected</button>
         <button type="button" data-key="reset">Reset progress</button>
       </div>
     </details>
-    <p class="help">Keyboard: ↑/↓ choose a path, Enter move, ← undo, H hint, E back. Press F once for the flag guide, F again to place a flag; any other key closes the guide. Progress and custom levels save in this browser.</p>
+    <input id="level-import" type="file" accept=".txt,text/plain" hidden>
+    <p class="help">Mouse: left click cycles paths; right click moves when a path is selected, or undoes when none is selected. Keyboard: ↑/↓ choose a path, Enter move, ← undo, H hint, E back. F opens or uses the flag guide. Progress and custom levels save in this browser.</p>
   </main>
 </body>
 </html>

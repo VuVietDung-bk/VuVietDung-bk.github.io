@@ -1,4 +1,5 @@
 import { COLS, ROWS, DIRECTIONS } from './level.mjs';
+import { MAIN_LEVEL_COUNT } from './level-loader.mjs';
 
 const IMAGE_NAMES = [
   'title', 'settingicon', 'arrows', 'midtitle', 'mouse', 'instruction',
@@ -155,7 +156,7 @@ export class GameRenderer {
   saved(state) {
     this.image('savedlevelscreen', 0, 0);
     this.image('ins_saved_levels', 0, 0);
-    const publicLevels = Array.from({ length: 50 }, (_, id) => ({ name: `Level ${id}` }));
+    const publicLevels = Array.from({ length: MAIN_LEVEL_COUNT }, (_, id) => ({ name: `Level ${id}` }));
     const list = state.screen === 'saved' ? state.saved : publicLevels;
     const page = state.screen === 'saved' ? state.savedPage : Math.floor(state.publicIndex / 10);
     const selected = state.screen === 'saved' ? state.savedIndex : state.publicIndex % 10;

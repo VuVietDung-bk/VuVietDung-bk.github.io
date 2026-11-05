@@ -9,6 +9,7 @@ export class LevelEditor {
       teles: []
     };
     this.name = name;
+    this.originalName = name;
     this.cursorX = 0;
     this.cursorY = 0;
     this.pendingTele = null;
@@ -26,7 +27,8 @@ export class LevelEditor {
     this.level.steps = Math.floor(sum / 3);
     this.level.teleSteps = sum % 3;
     this.board = new GameBoard(this.level, { mode: 'custom' });
-    this.verifying = true;
+    this.verifying = !this.board.complete;
+    this.verified = this.board.complete;
     return null;
   }
 

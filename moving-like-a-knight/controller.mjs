@@ -1,9 +1,9 @@
 import { GameAudio } from './audio.mjs';
 import { GameBoard } from './board.mjs';
-import { LevelEditor } from './editor.mjs';
-import { parseLevel } from './level.mjs';
-import { FLAG_POSITIONS, LEVEL_DATA } from './levels.mjs';
-import { GameRenderer } from './renderer.mjs';
+import { LevelEditor } from './editor.mjs?v=4';
+import { BONUS_LEVEL_IDS, LevelRepository, MAIN_LEVEL_COUNT } from './level-loader.mjs';
+import { parseLevel, serializeLevel, validateLevel } from './level.mjs?v=4';
+import { GameRenderer } from './renderer.mjs?v=4';
 import { DEFAULT_PROGRESS, loadCustom, loadProgress, saveCustom, saveProgress } from './storage.mjs';
 
 export class KnightGame {
@@ -11,7 +11,10 @@ export class KnightGame {
     this.canvas = document.getElementById('game');
     this.noticeElement = document.getElementById('notice');
     this.soundButton = document.getElementById('sound');
+    this.importInput = document.getElementById('level-import');
     this.audio = new GameAudio();
+    this.levels = new LevelRepository();
+    this.levelRequest = 0;
     this.state = {
       screen: 'title', progress: loadProgress(), saved: loadCustom(),
       board: null, editor: null, winImage: 'gg',
@@ -59,6 +62,7 @@ export class KnightGame {
   }
 
   setScreen(screen) {
+    if (screen !== this.state.screen) this.levelRequest++;
     this.state.screen = screen;
     this.audio.setScreen(screen);
     this.draw();
@@ -68,20 +72,34 @@ export class KnightGame {
     if (!saveProgress(this.progress)) this.showNotice('Browser storage is unavailable.');
   }
 
-  startBoard(level, mode = 'normal', number = this.progress.level, bonus = false) {
+  startBoard(level, mode = 'normal', number = this.progress.level, bonus = false, flagPos = [0, 0]) {
     if (!level) { this.showNotice('This level is unavailable.'); return; }
     this.state.board = new GameBoard(level, {
-      mode, number, bonus, flagPos: FLAG_POSITIONS[number] || [0, 0]
+      mode, number, bonus, flagPos
     });
     this.lastTick = performance.now();
     this.setScreen('board');
     this.canvas.focus();
   }
 
+  async loadFileLevel(fileNumber, mode = 'normal', number = fileNumber, bonus = false) {
+    const request = ++this.levelRequest;
+    this.showNotice('Loading level…');
+    try {
+      const [level, flagPos] = await Promise.all([
+        this.levels.load(fileNumber), this.levels.flagPosition(number)
+      ]);
+      if (request !== this.levelRequest) return;
+      this.noticeElement.classList.remove('visible');
+      this.startBoard(level, mode, number, bonus, flagPos);
+    } catch (error) {
+      if (request === this.levelRequest) this.showNotice(error.message);
+    }
+  }
+
   loadMain() {
-    const raw = LEVEL_DATA[String(this.progress.level)];
-    if (!raw) { this.setScreen('victory'); return; }
-    this.startBoard(parseLevel(raw), 'normal', this.progress.level);
+    if (this.progress.level >= MAIN_LEVEL_COUNT) { this.setScreen('victory'); return; }
+    return this.loadFileLevel(this.progress.level, 'normal');
   }
 
   tryBonus() {
@@ -89,9 +107,8 @@ export class KnightGame {
       this.showNotice('No valid move. Undo with ←.');
       return;
     }
-    const ids = Object.keys(LEVEL_DATA).filter(id => Number(id) >= 1000);
-    const id = ids[Math.floor(Math.random() * ids.length)];
-    if (id) this.startBoard(parseLevel(LEVEL_DATA[id]), 'normal', this.board.number, true);
+    const id = BONUS_LEVEL_IDS[Math.floor(Math.random() * BONUS_LEVEL_IDS.length)];
+    if (id !== undefined) this.loadFileLevel(id, 'normal', this.board.number, true);
   }
 
   completeBoard() {
@@ -108,7 +125,7 @@ export class KnightGame {
         this.progress.points += Math.floor(board.points);
       }
       this.persistProgress();
-      if (this.progress.level >= 50) { this.setScreen('victory'); return; }
+      if (this.progress.level >= MAIN_LEVEL_COUNT) { this.setScreen('victory'); return; }
       this.state.winImage = board.bonus ? 'ggeasteregg' : Math.random() < 0.04 ? 'easteregg' : 'gg';
     } else {
       this.state.winImage = 'gg';
@@ -150,14 +167,61 @@ export class KnightGame {
   saveEditor() {
     const name = this.editor.rename.trim();
     if (!name) { this.showNotice('Enter a level name.'); return; }
-    if (this.state.saved.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+    const originalIndex = this.editor.originalName
+      ? this.state.saved.findIndex(item => item.name === this.editor.originalName) : -1;
+    if (this.state.saved.some((item, index) => index !== originalIndex && item.name.toLowerCase() === name.toLowerCase())) {
       this.showNotice('That name is already used.');
       return;
     }
+    if (originalIndex >= 0) this.state.saved.splice(originalIndex, 1);
     this.state.saved.unshift({ name, level: this.editor.level });
     if (!saveCustom(this.state.saved)) this.showNotice('Could not save level in this browser.');
     this.state.editor = null;
     this.setScreen('more');
+  }
+
+  async importCustomLevel(file) {
+    if (!file) return;
+    try {
+      if (file.size > 100_000) throw new Error('Level file is too large.');
+      const level = validateLevel(parseLevel(await file.text()));
+      const base = file.name.replace(/\.txt$/i, '').trim().slice(0, 21) || 'Imported level';
+      let name = base, suffix = 2;
+      while (this.state.saved.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+        const ending = ` ${suffix++}`;
+        name = base.slice(0, 21 - ending.length) + ending;
+      }
+      const updated = [{ name, level }, ...this.state.saved];
+      if (!saveCustom(updated)) throw new Error('Could not save level in this browser.');
+      this.state.saved = updated;
+      this.state.savedIndex = 0;
+      this.state.savedPage = 0;
+      this.setScreen('saved');
+      this.showNotice(`Imported ${name}`);
+    } catch (error) {
+      this.showNotice(error.message || 'Could not import level.');
+    } finally {
+      this.importInput.value = '';
+    }
+  }
+
+  exportSelectedLevel() {
+    if (this.screen !== 'saved') { this.showNotice('Open Saved Levels to select a level first.'); return; }
+    const item = this.state.saved[this.state.savedPage * 10 + this.state.savedIndex];
+    if (!item) { this.showNotice('No saved level selected.'); return; }
+    try {
+      const data = serializeLevel(item.level);
+      const url = URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${item.name.replace(/[^a-z0-9_-]/gi, '_')}.txt`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      this.showNotice(error.message || 'Could not export level.');
+    }
   }
 
   startEditor(level = null, name = '') {
@@ -193,7 +257,7 @@ export class KnightGame {
       location.href = '../more.html';
     } else if (key === 'Enter') {
       if (state.menuIndex === 0) this.loadMain();
-      else if (state.menuIndex === 1) this.startBoard(parseLevel(LEVEL_DATA[String(state.replayIndex)]), 'replay', state.replayIndex);
+      else if (state.menuIndex === 1) this.loadFileLevel(state.replayIndex, 'replay');
       else if (state.menuIndex === 2) this.setScreen('more');
       else location.href = '../more.html';
     }
@@ -261,15 +325,16 @@ export class KnightGame {
   }
 
   handlePublic(key) {
-    if (key === 'ArrowRight') this.state.publicIndex = Math.min(49, this.state.publicIndex + 10);
+    if (key === 'ArrowRight') this.state.publicIndex = Math.min(MAIN_LEVEL_COUNT - 1, this.state.publicIndex + 10);
     else if (key === 'ArrowLeft') this.state.publicIndex = Math.max(0, this.state.publicIndex - 10);
-    else if (key === 'ArrowDown') this.state.publicIndex = Math.min(49, this.state.publicIndex + 1);
+    else if (key === 'ArrowDown') this.state.publicIndex = Math.min(MAIN_LEVEL_COUNT - 1, this.state.publicIndex + 1);
     else if (key === 'ArrowUp') this.state.publicIndex = Math.max(0, this.state.publicIndex - 1);
-    else if (key === 'Enter') this.startBoard(parseLevel(LEVEL_DATA[String(this.state.publicIndex)]), 'replay', this.state.publicIndex);
+    else if (key === 'Enter') this.loadFileLevel(this.state.publicIndex, 'replay');
     else if (key.toLowerCase() === 'e') this.setScreen('more');
   }
 
   handle(key) {
+    let pending;
     switch (this.screen) {
       case 'title': this.handleTitle(key); break;
       case 'board': this.handleBoard(key); break;
@@ -281,7 +346,10 @@ export class KnightGame {
       case 'win':
       case 'reset':
         if (key === ' ' || key === 'Enter') {
-          if (this.board.mode === 'normal') this.loadMain();
+          if (this.board.mode === 'normal') {
+            this.audio.stopEffects();
+            pending = this.loadMain();
+          }
           else this.setScreen(this.board.mode === 'custom' ? 'saved' : 'title');
         } else if (key.toLowerCase() === 'e') this.setScreen('title');
         else if (key.toLowerCase() === 'x') location.href = '../more.html';
@@ -292,14 +360,66 @@ export class KnightGame {
         break;
     }
     this.draw();
+    return pending;
   }
 
   resetProgress() {
     this.state.progress = { ...DEFAULT_PROGRESS };
     this.audio.setVolumes(this.progress);
     this.persistProgress();
-    this.loadMain();
+    this.state.board = { mode: 'normal' };
     this.setScreen('reset');
+  }
+
+  onCanvasPointer(event) {
+    if (event.button !== 0 && event.button !== 2) return;
+    if (event.button === 2) event.preventDefault();
+    const choose = event.button === 2;
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * 1040 / rect.width;
+    const y = (event.clientY - rect.top) * 700 / rect.height;
+    this.canvas.focus();
+
+    if (this.screen === 'board') {
+      if (this.board.flagHelp) {
+        if (choose) this.handle('f');
+        else this.board.dismissFlagHelp();
+      } else if (x < 900 && y < 650) {
+        this.handle(choose ? (this.board.direction === null ? 'ArrowLeft' : 'Enter') : 'ArrowUp');
+      }
+    } else if (this.screen === 'title') {
+      if (!choose && x < 100 && y > 580) this.setScreen('settings');
+      else if (!choose && x > 370 && x < 780 && y > 430 && y < 650) {
+        this.state.menuIndex = Math.max(0, Math.min(3, Math.floor((y - 440) / 50)));
+      } else if (choose) this.handle('Enter');
+    } else if (this.screen === 'more') {
+      if (!choose && y > 130 && y < 450) this.state.moreIndex = Math.max(0, Math.min(2, Math.floor(x / 347)));
+      else if (choose) this.handle('Enter');
+    } else if (this.screen === 'saved' || this.screen === 'public') {
+      if (!choose) {
+        const index = Math.floor((y - 70) / 60);
+        if (index >= 0 && index < 10) {
+          if (this.screen === 'saved') {
+            if (this.state.savedPage * 10 + index < this.state.saved.length) this.state.savedIndex = index;
+          } else {
+            this.state.publicIndex = Math.min(MAIN_LEVEL_COUNT - 1, Math.floor(this.state.publicIndex / 10) * 10 + index);
+          }
+        }
+      } else this.handle('Enter');
+    } else if (this.screen === 'custom') {
+      if (this.editor.verifying && x < 900 && y < 650) {
+        this.handle(choose ? (this.editor.board.direction === null ? 'ArrowLeft' : 'Enter') : 'ArrowUp');
+      } else if (!choose && !this.editor.verified && x >= 25 && x < 900 && y >= 25 && y < 650) {
+        this.editor.cursorX = Math.floor(y / 25) - 1;
+        this.editor.cursorY = Math.floor(x / 25) - 1;
+      } else if (choose) this.handle('Enter');
+    } else if (this.screen === 'win' || this.screen === 'reset') {
+      if (choose) this.handle(' ');
+    } else if (this.screen === 'settings') {
+      if (!choose && x < 85 && y < 75) this.handle('e');
+    }
+    this.activateAudio();
+    this.draw();
   }
 
   bindInputs() {
@@ -309,6 +429,7 @@ export class KnightGame {
       this.updateSoundButton();
       this.canvas.focus();
     });
+    this.importInput.addEventListener('change', event => this.importCustomLevel(event.target.files?.[0]));
     document.addEventListener('keydown', event => {
       if (event.target.tagName === 'BUTTON' && (event.key === ' ' || event.key === 'Enter')) return;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Backspace'].includes(event.key)) event.preventDefault();
@@ -328,7 +449,9 @@ export class KnightGame {
     for (const button of document.querySelectorAll('[data-key]')) {
       button.addEventListener('click', () => {
         const key = button.dataset.key;
-        if (key === 'reset') {
+        if (key === 'import') this.importInput.click();
+        else if (key === 'export') this.exportSelectedLevel();
+        else if (key === 'reset') {
           if (confirm('Reset game progress and settings?')) this.resetProgress();
         } else if (this.screen === 'custom' && this.editor.verified && key === 's') {
           const name = prompt('Level name', this.editor.name || '');
@@ -338,39 +461,8 @@ export class KnightGame {
         this.canvas.focus();
       });
     }
-    this.canvas.addEventListener('pointerdown', event => {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) * 1040 / rect.width;
-      const y = (event.clientY - rect.top) * 700 / rect.height;
-      this.canvas.focus();
-      if (this.screen === 'title') {
-        if (x < 100 && y > 580) this.setScreen('settings');
-        else if (x > 370 && x < 780 && y > 430 && y < 650) {
-          this.state.menuIndex = Math.max(0, Math.min(3, Math.floor((y - 440) / 50)));
-          this.handle('Enter');
-        }
-      } else if (this.screen === 'more' && y > 130 && y < 450) {
-        this.state.moreIndex = Math.max(0, Math.min(2, Math.floor(x / 347)));
-        this.handle('Enter');
-      } else if (this.screen === 'board') {
-        if (this.board.flagHelp) { this.board.dismissFlagHelp(); this.draw(); }
-        else if (x < 900 && y < 650) this.handle(this.board.direction !== null ? 'Enter' : 'ArrowUp');
-      } else if (this.screen === 'win' || this.screen === 'reset') this.handle(' ');
-      else if (this.screen === 'saved' || this.screen === 'public') {
-        const index = Math.floor((y - 70) / 60);
-        if (index >= 0 && index < 10) {
-          if (this.screen === 'saved') {
-            const selected = this.state.savedPage * 10 + index;
-            if (selected < this.state.saved.length) { this.state.savedIndex = index; this.handle('Enter'); }
-          } else {
-            this.state.publicIndex = Math.min(49, Math.floor(this.state.publicIndex / 10) * 10 + index);
-            this.handle('Enter');
-          }
-        }
-      } else if (this.screen === 'settings' && x < 85 && y < 75) this.handle('e');
-      this.activateAudio();
-      this.draw();
-    });
+    this.canvas.addEventListener('pointerdown', event => this.onCanvasPointer(event));
+    this.canvas.addEventListener('contextmenu', event => event.preventDefault());
   }
 
   frame(now) {

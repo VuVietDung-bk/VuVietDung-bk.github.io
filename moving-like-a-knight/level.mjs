@@ -11,7 +11,8 @@ export const DIRECTIONS = [
   [[0,-1],[-1,-1],[-2,-1]], [[-1,0],[-2,0],[-2,-1]]
 ];
 
-export const inBounds = (row, col) => row >= 0 && row < ROWS && col >= 0 && col < COLS;
+export const inBounds = (row, col) => Number.isInteger(row) && Number.isInteger(col) &&
+  row >= 0 && row < ROWS && col >= 0 && col < COLS;
 
 export function parseLevel(raw) {
   if (!raw) return null;
@@ -33,6 +34,39 @@ export function parseLevel(raw) {
     }
   }
   return { x, y, steps, teleSteps, grid, teles };
+}
+
+export function validateLevel(level) {
+  if (!level || !inBounds(level.x, level.y) ||
+      !Number.isInteger(level.steps) || level.steps < 0 ||
+      !Number.isInteger(level.teleSteps) || level.teleSteps < 0 ||
+      !Array.isArray(level.grid) || level.grid.length !== ROWS ||
+      !level.grid.every(row => Array.isArray(row) && row.length === COLS &&
+        row.every(value => Number.isInteger(value) && value >= -1 && value <= 3)) ||
+      !Array.isArray(level.teles) ||
+      !level.teles.every(tele => inBounds(tele.sx, tele.sy) && inBounds(tele.ex, tele.ey))) {
+    throw new Error('Invalid level file.');
+  }
+  return level;
+}
+
+export function serializeLevel(level) {
+  validateLevel(level);
+  const lines = [`${level.x} ${level.y} ${level.steps} ${level.teleSteps}`];
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS;) {
+      const value = level.grid[row][col];
+      if (value <= 0) { col++; continue; }
+      const start = col;
+      while (col < COLS && level.grid[row][col] === value) col++;
+      lines.push(`${row},${start},${col},${value}`);
+    }
+  }
+  if (level.teles.length) {
+    lines.push('tele');
+    for (const tele of level.teles) lines.push(`${tele.sx},${tele.sy},${tele.ex},${tele.ey}`);
+  }
+  return `${lines.join('\n')}\n`;
 }
 
 export function cloneLevel(level) {
