@@ -82,11 +82,19 @@ test('flag help dismisses on another key, F consumes one flag, Enter only moves 
   assert.deepEqual([board.x, board.y], original);
 });
 
-test('level 29 hint finds its first move while the intentional 21-step limit remains', () => {
+test('hints keep solvable levels and stop before excessive step or memory use', () => {
   const level29 = new GameBoard(parseLevel(fileText('level_29.txt')));
   assert.equal(level29.findHint(), 3);
-  const longLevel = new GameBoard(parseLevel(fileText('level_1001.txt')));
-  assert.equal(longLevel.findHint(), 'overflow');
+  const level18 = new GameBoard(parseLevel(fileText('level_18.txt')));
+  assert.equal(level18.findHint(), 5);
+  const level30 = new GameBoard(parseLevel(fileText('level_30.txt')));
+  const points30 = level30.points;
+  assert.equal(level30.findHint(), 'overflow', '21 remaining moves exceed the new limit');
+  assert.equal(level30.points, points30);
+  const bonus1009 = new GameBoard(parseLevel(fileText('level_1009.txt')));
+  const points1009 = bonus1009.points;
+  assert.equal(bonus1009.findHint(), 'overflow', 'state budget also stops a branching 20-move level');
+  assert.equal(bonus1009.points, points1009);
 });
 
 test('level editor writes tile values 1, 2 and 3 from the matching keys', () => {

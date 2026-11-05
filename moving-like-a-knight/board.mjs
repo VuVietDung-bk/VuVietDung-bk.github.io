@@ -1,5 +1,8 @@
 import { cloneLevel, DIRECTIONS, inBounds } from './level.mjs';
 
+const MAX_HINT_STEPS = 20;
+const MAX_HINT_STATES = 500_000;
+
 export class GameBoard {
   constructor(level, { mode = 'normal', number = 0, bonus = false, flagPos = [0, 0] } = {}) {
     Object.assign(this, cloneLevel(level));
@@ -99,15 +102,24 @@ export class GameBoard {
   }
 
   findHint() {
-    if (this.steps - this.turn > 21) { this.hint = 'overflow'; return this.hint; }
+    if (this.steps - this.turn > MAX_HINT_STEPS) { this.hint = 'overflow'; return this.hint; }
     this.direction = null;
     const grid = this.grid.map(row => row.slice());
+    const active = [];
+    for (let row = 0; row < grid.length; row++) {
+      for (let col = 0; col < grid[row].length; col++) {
+        if (grid[row][col] > 0) active.push([row, col]);
+      }
+    }
     const memo = new Set();
+    let overflow = false;
     const solve = (x, y, steps, teleSteps) => {
+      if (overflow) return null;
       if (3 * steps + teleSteps === 0) return [];
       if (steps < 0 || teleSteps < 0) return null;
-      const key = `${x},${y},${steps},${teleSteps},${grid.map(row => row.join(',')).join(';')}`;
+      const key = `${x},${y},${steps},${teleSteps},${active.map(([row, col]) => grid[row][col]).join('')}`;
       if (memo.has(key)) return null;
+      if (memo.size >= MAX_HINT_STATES) { overflow = true; return null; }
       for (let direction = 0; direction < 16; direction++) {
         const path = DIRECTIONS[direction];
         if (!path.every(([row, col]) => inBounds(x + row, y + col) && grid[x + row][y + col] > 0)) continue;
@@ -129,13 +141,14 @@ export class GameBoard {
         grid[x][y]++;
         for (let index = 0; index < 2; index++) grid[x + path[index][0]][y + path[index][1]]++;
         if (rest) return [direction, ...rest];
+        if (overflow) return null;
       }
       memo.add(key);
       return null;
     };
     const answer = solve(this.x, this.y, this.steps - this.turn, this.teleSteps - this.teleTurn);
-    this.hint = answer?.length ? answer[0] : 'undo';
-    this.points = Math.max(0, this.points - this.hintPenalty);
+    this.hint = overflow ? 'overflow' : answer?.length ? answer[0] : 'undo';
+    if (!overflow) this.points = Math.max(0, this.points - this.hintPenalty);
     return this.hint;
   }
 }
