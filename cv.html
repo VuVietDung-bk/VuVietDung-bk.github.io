@@ -6,12 +6,17 @@
   <meta name="theme-color" content="#fbfcfb" data-theme-light="#fbfcfb" data-theme-dark="#1b2426">
   <meta name="description" content="CV.">
   <title>CV</title>
-  <script src="theme.js"></script>
+  <script src="theme.js?v=2"></script>
   <link rel="stylesheet" href="styles.css">
-  <script src="app.js" defer></script>
+  <script src="app.js?v=2" defer></script>
 </head>
 <body>
-  <header class="site-header" id="site-header"></header>
+  <header class="site-header" id="site-header">
+    <div class="header-inner">
+      <nav class="site-navigation" id="site-nav" aria-label="Main navigation"></nav>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Bật chế độ tối" title="Bật chế độ tối" aria-pressed="false">☾</button>
+    </div>
+  </header>
   <div class="layout">
     <aside class="sidebar" id="profile-sidebar"></aside>
     <main class="content" id="main">

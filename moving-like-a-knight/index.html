@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b09">
+  <title>Moving Like A Knight | Viet Dung Vu</title>
+  <meta name="description" content="Play Moving Like A Knight in your browser.">
+  <link rel="stylesheet" href="game.css">
+  <script src="levels.js" defer></script>
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <header class="page-bar">
+    <a href="../more.html" class="back-link">← More</a>
+    <strong>Moving Like A Knight</strong>
+    <button id="sound" type="button" aria-label="Unmute game audio" aria-pressed="false">♪ Sound off</button>
+  </header>
+  <main>
+    <div class="game-frame">
+      <canvas id="game" width="1040" height="700" tabindex="0" aria-label="Moving Like A Knight game. Use arrow keys and Enter to play."></canvas>
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    </div>
+    <div class="touch-controls" aria-label="Game controls">
+      <button type="button" data-key="ArrowLeft" aria-label="Left or undo">←</button>
+      <button type="button" data-key="ArrowUp" aria-label="Up or next direction">↑</button>
+      <button type="button" data-key="ArrowDown" aria-label="Down or previous direction">↓</button>
+      <button type="button" data-key="ArrowRight" aria-label="Right">→</button>
+      <button type="button" data-key="Enter" class="primary-control">Enter</button>
+      <button type="button" data-key=" " class="primary-control">Space</button>
+      <button type="button" data-key="h">Hint</button>
+      <button type="button" data-key="f">Flag</button>
+      <button type="button" data-key="e">Back</button>
+    </div>
+    <details class="extra-controls">
+      <summary>Level editor and menu controls</summary>
+      <div class="touch-controls">
+        <button type="button" data-key="0">Erase</button>
+        <button type="button" data-key="1">Tile 1</button>
+        <button type="button" data-key="2">Tile 2</button>
+        <button type="button" data-key="3">Tile 3</button>
+        <button type="button" data-key="k">Knight</button>
+        <button type="button" data-key="t">Teleporter</button>
+        <button type="button" data-key="d">Delete</button>
+        <button type="button" data-key="v">Verify</button>
+        <button type="button" data-key="s">Settings / Save</button>
+        <button type="button" data-key="l">Edit saved</button>
+        <button type="button" data-key="x">Delete saved</button>
+        <button type="button" data-key="reset">Reset progress</button>
+      </div>
+    </details>
+    <p class="help">Keyboard: ↑/↓ choose a path, Enter move, ← undo, H hint, F flag, E back. Progress and custom levels save in this browser.</p>
+  </main>
+</body>
+</html>

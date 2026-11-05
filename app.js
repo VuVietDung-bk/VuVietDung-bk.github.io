@@ -25,13 +25,12 @@ const pages = [
 
 const currentFile = () => location.pathname.split('/').pop() || 'index.html';
 const allowedFiles = new Set(pages.map(page => page.file));
+const siteDirectory = new URL('.', location.href).pathname;
 
 function renderSharedLayout() {
-  const navigation = document.querySelector('#site-header');
+  const navigation = document.querySelector('#site-nav');
   const sidebar = document.querySelector('#profile-sidebar');
 
-  const nav = document.createElement('nav');
-  nav.setAttribute('aria-label', 'Main navigation');
   const list = document.createElement('ul');
   list.className = 'top-nav';
   for (const page of pages) {
@@ -42,16 +41,7 @@ function renderSharedLayout() {
     item.append(link);
     list.append(item);
   }
-  const themeItem = document.createElement('li');
-  themeItem.className = 'theme-item';
-  const themeButton = document.createElement('button');
-  themeButton.className = 'theme-toggle';
-  themeButton.type = 'button';
-  themeButton.dataset.themeToggle = '';
-  themeItem.append(themeButton);
-  list.append(themeItem);
-  nav.append(list);
-  navigation.replaceChildren(nav);
+  navigation.replaceChildren(list);
 
   const name = document.createElement('a');
   name.className = 'name';
@@ -180,7 +170,7 @@ if (location.protocol !== 'file:') {
     const link = event.target.closest('a[href]');
     if (!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || event.button !== 0) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !allowedFiles.has(url.pathname.split('/').pop()) || url.hash) return;
+    if (url.origin !== location.origin || !allowedFiles.has(url.pathname.slice(siteDirectory.length)) || !url.pathname.startsWith(siteDirectory) || url.hash) return;
     event.preventDefault();
     loadPage(url.href, true);
   });
