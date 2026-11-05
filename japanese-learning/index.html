@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Japanese Vault: tra cứu Kanji, ngữ pháp và từ vựng tiếng Nhật.">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Japanese Learning | Viet Dung Vu</title>
+  <link rel="stylesheet" href="learning.css">
+  <script src="data/index.js" defer></script>
+  <script src="learning.js" defer></script>
+</head>
+<body>
+  <header class="sitebar">
+    <div class="wrap sitebar-inner">
+      <a class="back-link" href="../more.html" aria-label="Quay lại trang More"><span aria-hidden="true">←</span> More</a>
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">日</span><span>Japanese <strong>Learning</strong></span></a>
+      <a class="source-link" href="https://github.com/VuVietDung-bk/japanese-vault" target="_blank" rel="noopener noreferrer">Vault gốc <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+
+  <div class="wrap workspace">
+    <aside class="explorer" aria-label="Tra cứu ghi chú">
+      <div class="explorer-intro"><span class="eyebrow">THƯ VIỆN GHI CHÚ</span><h2>Khám phá</h2><p>Kanji, ngữ pháp và từ vựng trong một nơi.</p></div>
+      <label class="field-label" for="search">Tìm kiếm</label>
+      <div class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Tìm chữ, Hán Việt, chủ đề…" autocomplete="off" spellcheck="false"></div>
+      <div class="filter-row">
+        <div><label class="field-label" for="group">Chuyên mục</label><select id="group"><option value="">Tất cả</option><option>Kanji</option><option>Grammar</option><option>Vocabulary</option><option>Overview</option></select></div>
+        <div><label class="field-label" for="level">JLPT</label><select id="level"><option value="">Mọi cấp</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select></div>
+      </div>
+      <div class="results-head"><span>Ghi chú</span><span id="result-count" role="status">Đang tải…</span></div>
+      <ul id="results" class="results"></ul>
+      <button id="show-more" class="show-more" type="button" hidden>Xem thêm kết quả ↓</button>
+    </aside>
+
+    <main id="note" class="reader" tabindex="-1" aria-live="polite">
+      <div class="loading-state">Đang mở thư viện…</div>
+    </main>
+  </div>
+</body>
+</html>
