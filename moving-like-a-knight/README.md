@@ -27,9 +27,9 @@ Dòng đầu lần lượt là **hàng của quân ngựa, cột của quân ng�
 
 Theo game Java gốc, mục **MORE** trong menu game mở sau khi qua màn 30. Trong đó chọn **Custom Levels** để tạo màn, **Saved Levels** để chơi hoặc sửa màn đã lưu.
 
-Trong editor: dùng phím mũi tên hoặc chuột trái chọn ô; 1/2/3 đặt ô, 0 xóa ô, K đặt quân ngựa, T rồi Enter đặt cổng, V bắt đầu xác minh. Giải xong màn xác minh, bấm S và đặt tên để lưu. Trong Saved Levels, Enter chơi, L sửa, X xóa. Sửa một màn đã lưu có thể dùng lại tên cũ để ghi đè.
+Trong editor: dùng phím mũi tên hoặc chuột trái chọn ô; 1/2/3 đặt ô, 0 xóa ô, K đặt quân ngựa, T rồi Enter đặt cổng, V bắt đầu xác minh. Giải xong màn xác minh, bấm S và đặt tên để lưu. Khi xác nhận lưu bằng Enter hoặc nút chạm, trình duyệt tự tải file `.txt` về thư mục Downloads và vẫn lưu bản trong trình duyệt. Trong Saved Levels, Enter chơi, L sửa, X xóa. Sửa một màn đã lưu có thể dùng lại tên cũ để ghi đè; xác nhận lưu sẽ tải bản `.txt` mới.
 
-Custom level lưu trong `localStorage` của trình duyệt, nên không tự xuất hiện trên máy khác hoặc trên GitHub. Dùng **Export selected** để tải file `.txt`, hoặc **Import .txt** để mang file sang trình duyệt khác. Muốn đưa một custom level thành màn chính công khai, đổi tên file xuất thành `level_N.txt`, đặt vào `levels/mainlevels/` và cập nhật số màn như hướng dẫn trên.
+Custom level cũng lưu trong `localStorage` của trình duyệt, nên không tự xuất hiện trên máy khác hoặc trên GitHub. Dùng **Export selected** nếu cần tải lại file `.txt`, hoặc **Import .txt** để mang file sang trình duyệt khác. Muốn đưa một custom level thành màn chính công khai, đổi tên file đã tải thành `level_N.txt`, đặt vào `levels/mainlevels/` và cập nhật số màn như hướng dẫn trên.
 
 ## Điều khiển
 

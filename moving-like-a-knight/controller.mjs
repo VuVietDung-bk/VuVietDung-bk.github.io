@@ -174,10 +174,16 @@ export class KnightGame {
       return;
     }
     if (originalIndex >= 0) this.state.saved.splice(originalIndex, 1);
-    this.state.saved.unshift({ name, level: this.editor.level });
-    if (!saveCustom(this.state.saved)) this.showNotice('Could not save level in this browser.');
+    const item = { name, level: this.editor.level };
+    this.state.saved.unshift(item);
+    const savedLocally = saveCustom(this.state.saved);
+    const downloaded = this.downloadLevel(item);
     this.state.editor = null;
     this.setScreen('more');
+    if (downloaded && savedLocally) this.showNotice(`Saved and downloaded ${downloaded}`);
+    else if (downloaded) this.showNotice(`Downloaded ${downloaded}; browser storage is unavailable.`);
+    else if (savedLocally) this.showNotice('Saved in browser, but download failed. Use Export selected.');
+    else this.showNotice('Could not save or download the level.');
   }
 
   async importCustomLevel(file) {
@@ -209,18 +215,25 @@ export class KnightGame {
     if (this.screen !== 'saved') { this.showNotice('Open Saved Levels to select a level first.'); return; }
     const item = this.state.saved[this.state.savedPage * 10 + this.state.savedIndex];
     if (!item) { this.showNotice('No saved level selected.'); return; }
+    if (!this.downloadLevel(item)) this.showNotice('Could not export level.');
+  }
+
+  downloadLevel(item) {
     try {
       const data = serializeLevel(item.level);
       const url = URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${item.name.replace(/[^a-z0-9_-]/gi, '_')}.txt`;
+      const safeName = item.name.trim().replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\s+/g, '_').slice(0, 80) || 'level';
+      const filename = `${safeName}.txt`;
+      link.download = filename;
       document.body.append(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return filename;
     } catch (error) {
-      this.showNotice(error.message || 'Could not export level.');
+      return null;
     }
   }
 

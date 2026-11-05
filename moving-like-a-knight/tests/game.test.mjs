@@ -130,7 +130,7 @@ test('controller routes flag, mouse and win-screen keys through the correct stat
   const status = { classList: { add() {}, remove() {} } };
   const sound = { addEventListener() {}, setAttribute() {} };
   const importInput = { addEventListener() {}, value: '' };
-  let downloaded = null, exportedBlob = null;
+  let downloaded = null, exportedBlob = null, downloadCount = 0;
   globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; } };
   globalThis.Audio = FakeAudio;
   globalThis.localStorage = { getItem: () => null, setItem() {} };
@@ -138,7 +138,7 @@ test('controller routes flag, mouse and win-screen keys through the correct stat
   globalThis.document = {
     getElementById: id => ({ game: canvas, notice: status, sound, 'level-import': importInput })[id],
     querySelectorAll: () => [], addEventListener: (name, fn) => { listeners[name] = fn; },
-    createElement: () => ({ click() { downloaded = this.download; }, remove() {} }),
+    createElement: () => ({ click() { downloaded = this.download; downloadCount++; }, remove() {} }),
     body: { append() {} },
     fonts: { ready: Promise.resolve() }
   };
@@ -202,13 +202,26 @@ test('controller routes flag, mouse and win-screen keys through the correct stat
   assert.equal(game.state.saved[0].name, 'my level');
   game.startEditor(game.state.saved[0].level, 'my level');
   game.editor.verified = true;
-  game.editor.rename = 'my level';
-  game.saveEditor();
+  game.handle('s');
+  game.handle('Enter');
   assert.equal(game.state.saved.length, 1, 'editing a saved level may overwrite its existing name');
+  assert.equal(downloaded, 'my_level.txt', 'confirming Save starts a download');
+  assert.equal(downloadCount, 1);
+  assert.deepEqual(parseLevel(await exportedBlob.text()), game.state.saved[0].level);
   game.setScreen('saved');
   game.exportSelectedLevel();
   assert.equal(downloaded, 'my_level.txt');
+  assert.equal(downloadCount, 2, 'manual Export still works');
   assert.deepEqual(parseLevel(await exportedBlob.text()), game.state.saved[0].level);
+  game.startEditor(firstLevel());
+  game.editor.verified = true;
+  game.handle('s');
+  for (const key of ['N', 'e', 'w']) game.handle(key);
+  game.handle('Enter');
+  assert.equal(game.state.saved[0].name, 'New');
+  assert.equal(downloaded, 'New.txt', 'a newly created level also downloads on Save');
+  assert.equal(downloadCount, 3);
+  assert.equal(game.downloadLevel({ name: 'Màn mới', level: firstLevel() }), 'Màn_mới.txt');
   game.setScreen('more');
   canvasListeners.pointerdown({ ...pointer(0), clientX: 900, clientY: 200 });
   assert.equal(game.state.moreIndex, 2);
